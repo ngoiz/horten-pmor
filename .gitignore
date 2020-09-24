@@ -203,6 +203,7 @@ dmypy.json
 # sharpy
 cases/
 output/
+output*/
 libraries/
 figures/
 .idea/
