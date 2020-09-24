@@ -180,9 +180,9 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
                           'use_undamped_modes': True}
 
     ws.config['LinearAssembler'] = {'linear_system': 'LinearAeroelastic',
-                                    'inout_coordinates': 'nodes',
-                                    'retain_inputs': [2 * 6 * (ws.num_node_tot - 1)],
-                                    'retain_outputs': [6 * (ws.num_node_tot - 1) + (ws.num_node_tot - 1) // 2 * 6],
+                                    # 'inout_coordinates': 'modes',
+                                    # 'retain_inputs': [2 * 6 * (ws.num_node_tot - 1)],
+                                    # 'retain_outputs': [6 * (ws.num_node_tot - 1) + (ws.num_node_tot - 1) // 2 * 6],
                                     'linear_system_settings': {
                                         'beam_settings': {'modal_projection': 'on',
                                                           'inout_coords': 'modes',
@@ -234,7 +234,7 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
                                                    'include_rbm': 'on',
                                                    'include_applied_forces': 'on'}}}
 
-    ws.config['FrequencyResponse'] = {'quick_plot': 'off',
+    ws.config['FrequencyResponse'] = {'quick_plot': 'on',
                                       'target_system': ['aeroelastic', 'structural', 'aerodynamic'],
                                       'folder': abspath + '/output/',
                                       'frequency_unit': 'w',
