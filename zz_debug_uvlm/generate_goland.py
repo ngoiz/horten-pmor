@@ -26,7 +26,7 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
     # Linear UVLM settings
     integration_order = 2
     remove_predictor = False
-    use_sparse = False
+    use_sparse = True
 
     # Case Admin - Create results folders
     case_name = 'goland_cs'
@@ -130,7 +130,6 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
             'rollup_dt': ws.dt,
             'rollup_aic_refresh': 1,
             'rollup_tolerance': 1e-4,
-            'vortex_radius': 1e-9,
             'velocity_field_generator': 'SteadyVelocityField',
             'velocity_field_input': {
                 'u_inf': ws.u_inf,
@@ -180,9 +179,9 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
                           'use_undamped_modes': True}
 
     ws.config['LinearAssembler'] = {'linear_system': 'LinearAeroelastic',
-                                    # 'inout_coordinates': 'modes',
-                                    # 'retain_inputs': [2 * 6 * (ws.num_node_tot - 1)],
-                                    # 'retain_outputs': [6 * (ws.num_node_tot - 1) + (ws.num_node_tot - 1) // 2 * 6],
+                                    'inout_coordinates': 'nodes',
+                                    'retain_inputs': [2 * 6 * (ws.num_node_tot - 1)],
+                                    'retain_outputs': [6 * (ws.num_node_tot - 1) + (ws.num_node_tot - 1) // 2 * 6],
                                     'linear_system_settings': {
                                         'beam_settings': {'modal_projection': 'on',
                                                           'inout_coords': 'modes',
@@ -198,15 +197,14 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
                                                           'remove_sym_modes': 'on',
                                                           'remove_dofs': []},
                                         'aero_settings': {'dt': ws.dt,
-                                                          # 'ScalingDict': {'length': 0.5 * ws.c_ref,
-                                                          #                 'speed': u_inf,
-                                                          #                 'density': rho},
+                                                          'ScalingDict': {'length': 0.5 * ws.c_ref,
+                                                                          'speed': u_inf,
+                                                                          'density': rho},
                                                           'integr_order': integration_order,
                                                           'density': ws.rho,
                                                           'remove_predictor': remove_predictor,
                                                           'use_sparse': use_sparse,
                                                           'rigid_body_motion': 'off',
-                                                          'vortex_radius': 1e-9,
                                                           'use_euler': 'off',
                                                           'remove_inputs': ['u_gust'],
                                                           'rom_method': list(rom_method_settings.keys()),
@@ -216,7 +214,6 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
 
     ws.config['AsymptoticStability'] = {'print_info': True,
                                         'folder': abspath + '/output/',
-                                      'target_system': ['aeroelastic', 'structural', 'aerodynamic'],
                                         'export_eigenvalues': 'on',
                                        }
 
@@ -234,8 +231,7 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
                                                    'include_rbm': 'on',
                                                    'include_applied_forces': 'on'}}}
 
-    ws.config['FrequencyResponse'] = {'quick_plot': 'on',
-                                      'target_system': ['aeroelastic', 'structural', 'aerodynamic'],
+    ws.config['FrequencyResponse'] = {'quick_plot': 'off',
                                       'folder': abspath + '/output/',
                                       'frequency_unit': 'w',
                                       'frequency_bounds': [10, 200],
