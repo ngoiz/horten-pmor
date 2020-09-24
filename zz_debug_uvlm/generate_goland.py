@@ -112,6 +112,7 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
         'num_cores': 4,
         'n_rollup': 0,
         'rollup_aic_refresh': 0,
+        'vortex_radius': 1e-12,
         'rollup_tolerance': 1e-4}
 
     ws.config['StaticCoupled'] = {
@@ -130,7 +131,7 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
             'rollup_dt': ws.dt,
             'rollup_aic_refresh': 1,
             'rollup_tolerance': 1e-4,
-            'vortex_radius': 1e-9,
+            'vortex_radius': 1e-12,
             'velocity_field_generator': 'SteadyVelocityField',
             'velocity_field_input': {
                 'u_inf': ws.u_inf,
@@ -198,15 +199,15 @@ def generate_goland(u_inf, problem_type, rom_method_settings, **kwargs):
                                                           'remove_sym_modes': 'on',
                                                           'remove_dofs': []},
                                         'aero_settings': {'dt': ws.dt,
-                                                          'ScalingDict': {'length': 0.5 * ws.c_ref,
-                                                                          'speed': u_inf,
-                                                                          'density': rho},
+                                                          # 'ScalingDict': {'length': 0.5 * ws.c_ref,
+                                                          #                 'speed': u_inf,
+                                                          #                 'density': rho},
                                                           'integr_order': integration_order,
                                                           'density': ws.rho,
                                                           'remove_predictor': remove_predictor,
                                                           'use_sparse': use_sparse,
                                                           'rigid_body_motion': 'off',
-                                                          'vortex_radius': 1e-9,
+                                                          'vortex_radius': 1e-12,
                                                           'use_euler': 'off',
                                                           'remove_inputs': ['u_gust'],
                                                           'rom_method': list(rom_method_settings.keys()),
