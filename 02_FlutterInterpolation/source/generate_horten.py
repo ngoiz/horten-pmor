@@ -1,21 +1,19 @@
+import sys
 import sharpy.utils.algebra as algebra
 from cases.hangar.richards_wing import Baseline
 import sharpy.sharpy_main
 import numpy as np
 import configobj
 
-
-def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
-    M = kwargs.get('M', 4)
-    N = kwargs.get('N', 11)
-    Msf = kwargs.get('Msf', 10)
-
-    trim = kwargs.get('trim', True)
-
+def generate_horten(u_inf, output_folder):
+    M = 6
+    N = 11
+    Msf = 5
     rho_fact = 1.
     track_body = True
     payload = 0
-    u_inf = kwargs.get('u_inf', 30)
+    u_inf = u_inf
+    output_folder = output_folder
 
     use_euler = True
     if use_euler:
@@ -23,12 +21,12 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
     else:
         orient = 'quat'
 
-    case_name += 'M%gN%gMsf%g_u%g' % (M, N, Msf, u_inf)
+    case_rmks = 'M%gN%gMsf%g_u%g' % (M, N, Msf, u_inf)
 
     # M4N11Msf5
-    alpha_deg = 3.974
-    cs_deflection = 0.3582
-    thrust = 4.8062
+    alpha_deg = 3.135
+    cs_deflection = 0.2514
+    thrust = 5.118
 
     # M8N11Msf5
     # alpha_deg = 4.5162
@@ -38,11 +36,11 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
     # ROM settings
     rom_settings = dict()
     rom_settings['algorithm'] = 'mimo_rational_arnoldi'
-    rom_settings['r'] = 10
+    rom_settings['r'] = 5
     rom_settings['frequency'] = np.array([0], dtype=float)
     rom_settings['single_side'] = 'observability'
 
-    case_name += 'rom_%g_%s' % (rom_settings['r'], rom_settings['single_side'][:3])
+    case_rmks += 'rom_%g_%s' % (rom_settings['r'], rom_settings['single_side'][:3])
 
     ws = Baseline(M=M,
                   N=N,
@@ -54,13 +52,18 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                   cs_deflection_deg=cs_deflection,  # -6.733360628875144,
                   thrust=thrust,  # 10.140622253017584,
                   physical_time=20,
-                  case_name=case_name,
-                  case_name_format=2)
+                  case_name='horten_s05',
+                  case_name_format=4,
+                  case_remarks=case_rmks)
 
     ws.set_properties()
     ws.initialise()
+    # ws.sweep_LE = 0*np.pi/180
+    # ws.n_tstep = 2
     ws.clean_test_files()
 
+    ws.tolerance=1e-6
+    ws.fsi_tolerance = 1e-6
     # ws.update_mass_stiffness(sigma=1., sigma_mass=1.5)
     ws.update_mass_stiffness(sigma=.5, sigma_mass=1.0, payload=payload)
     ws.update_fem_prop()
@@ -70,6 +73,8 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
 
     flow = ['BeamLoader',
             'AerogridLoader',
+            # 'StaticUvlm',
+            # 'StaticCoupled',
             'StaticTrim',
             'BeamPlot',
             'AerogridPlot',
@@ -83,12 +88,10 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
             'FrequencyResponse',
             # 'StabilityDerivatives',
             # 'LinDynamicSim',
-            # 'PickleData',
-            'SaveParametricCase'
+            'PickleData',
+            'SaveParametricCase',
+            'SaveStateSpace'
             ]
-
-    if not trim:
-        flow[2] = 'StaticCoupled'
 
     settings = dict()
     settings['SHARPy'] = {'case': ws.case_name,
@@ -96,7 +99,7 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                           'flow': flow,
                           'write_screen': 'on',
                           'write_log': 'on',
-                          'log_folder': './output/' + ws.case_name + '/',
+                          'log_folder': output_folder + ws.case_name + '/',
                           'log_file': ws.case_name + '.log'}
 
     settings['BeamLoader'] = {'unsteady': 'off',
@@ -118,7 +121,7 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
     if ws.horseshoe is True:
         settings['AerogridLoader']['mstar'] = 1
 
-    settings['StaticCoupled'] = {'print_info': 'on',
+    settings['StaticCoupled'] = {'print_info': 'off',
                                  'structural_solver': 'NonLinearStatic',
                                  'structural_solver_settings': {'print_info': 'off',
                                                                 'max_iterations': 200,
@@ -128,22 +131,22 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                                                                 'gravity_on': 'on',
                                                                 'gravity': 9.81},
                                  'aero_solver': 'StaticUvlm',
-                                 'aero_solver_settings': {'print_info': 'on',
+                                 'aero_solver_settings': {'print_info': 'off',
                                                           'horseshoe': ws.horseshoe,
                                                           'num_cores': 4,
                                                           'n_rollup': int(0),
+                                                          'vortex_radius': 1e-6,
                                                           'rollup_dt': ws.dt,
                                                           'rollup_aic_refresh': 1,
                                                           'rollup_tolerance': 1e-4,
-                                                          'vortex_radius': 1e-6,
                                                           'velocity_field_generator': 'SteadyVelocityField',
                                                           'velocity_field_input': {'u_inf': ws.u_inf,
                                                                                    'u_inf_direction': [1., 0, 0]},
                                                           'rho': ws.rho},
                                  'max_iter': 200,
-                                 'n_load_steps': 1,
+                                 'n_load_steps': 2,
                                  'tolerance': ws.tolerance,
-                                 'relaxation_factor': 0.2}
+                                 'relaxation_factor': 0.1}
 
     settings['StaticTrim'] = {'solver': 'StaticCoupled',
                               'solver_settings': settings['StaticCoupled'],
@@ -151,21 +154,22 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                               'initial_alpha': ws.alpha,
                               'initial_deflection': ws.cs_deflection,
                               'initial_thrust': ws.thrust,
-                              'max_iter': 200,
+                              'max_iter': 50,
                               'fz_tolerance': 1e-2,
                               'fx_tolerance': 1e-2,
                               'm_tolerance': 1e-2,
-                              'save_info': 'on'}
+                              'save_info': 'off',
+                              'folder': output_folder}
 
-    settings['AerogridPlot'] = {'folder': './output/',
+    settings['AerogridPlot'] = {'folder': output_folder,
                                 'include_rbm': 'off',
                                 'include_applied_forces': 'on',
                                 'minus_m_star': 0,
                                 'u_inf': ws.u_inf
                                 }
-    settings['AeroForcesCalculator'] = {'folder': './output/',
-                                        'write_text_file': 'off',
-                                        'text_file_name': ws.case_name + '_aeroforces.csv',
+    settings['AeroForcesCalculator'] = {'folder': output_folder,
+                                        'write_text_file': 'on',
+                                        'text_file_name': 'aeroforces.csv',
                                         'screen_output': 'on',
                                         'unsteady': 'off',
                                         'coefficients': True,
@@ -173,7 +177,7 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                                         'S_ref': 12.809,
                                         }
 
-    settings['BeamPlot'] = {'folder': './output/',
+    settings['BeamPlot'] = {'folder': output_folder,
                             'include_rbm': 'on',
                             'include_applied_forces': 'on',
                             'include_FoR': 'on'}
@@ -196,9 +200,9 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                           'n_rollup': 1,
                           'convection_scheme': ws.wake_type,
                           'rollup_dt': ws.dt,
+                          'vortex_radius': 1e-6,
                           'rollup_aic_refresh': 1,
                           'rollup_tolerance': 1e-4,
-                          'vortex_radius': 1e-6,
                           'velocity_field_generator': 'SteadyVelocityField',
                           'velocity_field_input': {'u_inf': ws.u_inf * 0,
                                                    'u_inf_direction': [1., 0., 0.]},
@@ -224,20 +228,20 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                                   'n_time_steps': 1,  # ws.n_tstep,
                                   'dt': ws.dt,
                                   'include_unsteady_force_contribution': 'off',
-                                  'postprocessors': ['BeamLoads', 'BeamPlot', 'AerogridPlot', 'WriteVariablesTime'],
-                                  'postprocessors_settings': {'BeamLoads': {'folder': './output/',
+                                  'postprocessors': ['BeamPlot', 'AerogridPlot', 'WriteVariablesTime'],
+                                  'postprocessors_settings': {'BeamLoads': {'folder': output_folder,
                                                                             'csv_output': 'off'},
-                                                              'BeamPlot': {'folder': './output/',
+                                                              'BeamPlot': {'folder': output_folder,
                                                                            'include_rbm': 'on',
                                                                            'include_applied_forces': 'on'},
                                                               'AerogridPlot': {
                                                                   'u_inf': ws.u_inf,
-                                                                  'folder': './output/',
+                                                                  'folder': output_folder,
                                                                   'include_rbm': 'on',
                                                                   'include_applied_forces': 'on',
                                                                   'minus_m_star': 0},
                                                               'WriteVariablesTime': {
-                                                                  'folder': './output/',
+                                                                  'folder': output_folder,
                                                                   'cleanup_old_solution': 'on',
                                                                   'delimiter': ',',
                                                                   'FoR_variables': ['total_forces',
@@ -255,14 +259,15 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                          'continuous_eigenvalues': 'off',
                          'dt': ws.dt,
                          'plot_eigenvalues': False,
-                         'rigid_modes_cg': False}
+                         'rigid_modes_cg': 'off',
+                         'folder': output_folder}
 
     settings['LinearAssembler'] = {'linear_system': 'LinearAeroelastic',
                                    'linear_system_settings': {
                                        'beam_settings': {'modal_projection': 'on',
                                                          'inout_coords': 'modes',
                                                          'discrete_time': True,
-                                                         'newmark_damp': 0.5e-2,
+                                                         'newmark_damp': 0.5e-3,
                                                          'discr_method': 'newmark',
                                                          'dt': ws.dt,
                                                          'proj_modes': 'undamped',
@@ -273,15 +278,15 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                                                          'remove_dofs': []},
                                        'aero_settings': {'dt': ws.dt,
                                                          # 'ScalingDict': {'length': ws.c_root,
-                                                         #                 'speed': ws.u_inf,
-                                                         #                 'density': ws.rho},
+                                                         #                  'speed': ws.u_inf,
+                                                         #                  'density': ws.rho},
                                                          'integr_order': 2,
                                                          'density': ws.rho * rho_fact,
                                                          'remove_predictor': False,
                                                          'use_sparse': False,
                                                          'rigid_body_motion': True,
-                                                         'vortex_radius': 1e-6,
                                                          'use_euler': use_euler,
+                                                         'vortex_radius': 1e-6,
                                                          'remove_inputs': ['u_gust'],
                                                          'rom_method': ['Krylov'],
                                                          'rom_method_settings': {'Krylov': rom_settings}},
@@ -298,12 +303,18 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
         'display_root_locus': 'off',
         'frequency_cutoff': 0,
         'export_eigenvalues': 'on',
-        'num_evals': 10000,
-        'folder': './output/'}
+        'num_evals': 1000,
+        'target_system': ['aeroelastic', 'aerodynamic', 'structural'],
+        'folder': output_folder}
 
     settings['FrequencyResponse'] = {'print_info': 'on',
+                                     'folder': output_folder,
                                      'compute_fom': 'on',
-                                     'frequency_bounds': [0.1, 100]}
+                                     'frequency_bounds': [0.1, 100],
+                                     'frequency_spacing': 'log',
+                                     'target_system': ['aeroelastic', 'aerodynamic', 'structural'],
+                                     'num_freqs': 200,
+                                     'compute_hinf': 'on'}
 
     settings['LinDynamicSim'] = {'dt': ws.dt,
                                  'n_tsteps': ws.n_tstep,
@@ -318,7 +329,7 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                                      'include_rbm': 'on',
                                      'include_applied_forces': 'on',
                                      'minus_m_star': 0},
-                                     'BeamPlot': {'folder': './output/',
+                                     'BeamPlot': {'folder': output_folder,
                                                   'include_rbm': 'on',
                                                   'include_applied_forces': 'on'}}}
 
@@ -327,16 +338,18 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
                                         'b_ref': ws.span,
                                         'c_ref': 0.719}
 
-    settings['SaveData'] = {'folder': './output',
+    settings['SaveData'] = {'folder': output_folder,
                             'save_aero': 'off',
                             'save_struct': 'off',
                             'save_linear': 'on',
                             'save_linear_uvlm': 'on'}
 
-    settings['PickleData'] = {'folder': './output/' + ws.case_name + '/'}
+    settings['PickleData'] = {'folder': output_folder + ws.case_name + '/'}
 
-    settings['SaveParametricCase'] = {'folder': './output/' + ws.case_name + '/',
-                                      'parameters': {'r': rom_settings['r']}}
+    settings['SaveParametricCase'] = {'folder': output_folder + ws.case_name + '/',
+                                      'parameters': {'u_inf': u_inf}}
+
+    settings['SaveStateSpace'] = {'folder': output_folder, 'target_system': ['aeroelastic', 'aerodynamic', 'structural']}
 
     config = configobj.ConfigObj()
     file_name = ws.case_route + '/' + ws.case_name + '.solver.txt'
@@ -345,21 +358,48 @@ def run_rom_convergence(case_name, output_folder='./output/', **kwargs):
         config[k] = v
     config.write()
 
-    sharpy.sharpy_main.main(['', ws.case_route + '/' + ws.case_name + '.solver.txt'])
+    delta = np.zeros((ws.n_tstep, 1))
+    delta_dot = np.zeros_like(delta)
+    d_elev = 1 * np.pi / 180 * 0.01
+    t_init = 1.0
+    t_ramp = 2.0
+    t_final = 5.0
+    delta[int(t_init // ws.dt):(int(t_ramp // ws.dt)), 0] = np.linspace(0, d_elev,
+                                                                        (int(t_ramp // ws.dt)) - int(t_init // ws.dt))
+    delta[int(t_ramp // ws.dt):(int(t_final // ws.dt)), 0] = d_elev
+    delta[int(t_final // ws.dt):(int((t_final + 1.0) // ws.dt)), 0] = np.linspace(d_elev, 0,
+                                                                                  (int((t_final + 1) // ws.dt)) - int(
+                                                                                      t_final // ws.dt))
+    delta_dot[int(t_init // ws.dt):int(t_ramp // ws.dt), 0] = d_elev / (t_ramp - t_init) * 1
+    delta_dot[int(t_final // ws.dt):(int((t_final + 1.0) // ws.dt)), 0] = - d_elev / 1. * 1
+    ws.create_linear_simulation(delta, delta_dot)
 
-
-def main():
-
-    M = 4
-    N = 11
-    Msf = 10
-
-    trim = False
-
-    case_name = 'horten_'
-
-    run_rom_convergence(case_name=case_name, M=M, N=N, Msf=Msf, trim=trim)
+    data = sharpy.sharpy_main.main(['', ws.case_route + '/' + ws.case_name + '.solver.txt'])
 
 
 if __name__ == '__main__':
-    main()
+    from datetime import datetime
+
+    # datetime object containing current date and time
+    u_inf_vec = np.linspace(30, 50, 11)
+
+
+    with open('./running_log.txt', 'w') as f:
+        now = datetime.now()
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        f.write('SHARPy launch - START\n')
+        f.write("date and time = %s\n\n" % dt_string)
+
+    for i, u_inf in enumerate(u_inf_vec):
+        print('RUNNING SHARPY %f\n' % u_inf)
+        try:
+            generate_horten(u_inf, './output_source_30_50_11_modesign_scaled_uvlm/')
+            now = datetime.now()
+            dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+            with open('./running_log.txt', 'a') as f:
+                f.write('%s Ran case %i :::: u_inf = %f\n\n' % (dt_string, i, u_inf))
+        except Exception:
+            now = datetime.now()
+            dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+            with open('./running_log.txt', 'a') as f:
+                f.write('%s ERROR RUNNING case %f\n\n' % (dt_string, u_inf))
